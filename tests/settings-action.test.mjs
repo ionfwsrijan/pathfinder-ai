@@ -70,4 +70,53 @@ describe("Settings Actions", () => {
     expect(result.settings.notifications).toBe(false);
     expect(result.settings.emailAlerts).toBe(true);
   });
+
+  it("accepts the full 8-field payload the settings client submits", async () => {
+    mocks.auth.mockResolvedValue({ userId: "user-1" });
+    mocks.getUserByClerkId.mockResolvedValue({ id: "db-user-1" });
+    mocks.userSettingsUpsert.mockResolvedValue({
+      notifications: false,
+      emailAlerts: true,
+      largeButtonsMode: true,
+      highContrastMode: false,
+      speechSpeed: 1.5,
+      preferredLanguage: "en",
+      preferredVoiceLanguage: "hi",
+      oneTapCameraMode: true,
+    });
+
+    const data = {
+      notifications: false,
+      emailAlerts: true,
+      largeButtonsMode: true,
+      highContrastMode: false,
+      speechSpeed: 1.5,
+      preferredLanguage: "en",
+      preferredVoiceLanguage: "hi",
+      oneTapCameraMode: true,
+    };
+
+    const result = await updateUserSettings(data);
+
+    expect(result.success).toBe(true);
+    expect(mocks.userSettingsUpsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        update: expect.objectContaining({ largeButtonsMode: true, speechSpeed: 1.5 }),
+      })
+    );
+  });
+
+  it("still rejects unknown keys via strict mode", async () => {
+    mocks.auth.mockResolvedValue({ userId: "user-1" });
+    mocks.getUserByClerkId.mockResolvedValue({ id: "db-user-1" });
+
+    const result = await updateUserSettings({
+      notifications: true,
+      emailAlerts: true,
+      bogusField: "nope",
+    });
+
+    expect(result.success).toBe(false);
+    expect(mocks.userSettingsUpsert).not.toHaveBeenCalled();
+  });
 });
