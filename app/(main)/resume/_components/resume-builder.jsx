@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
@@ -173,16 +173,28 @@ const generatePDF = async () => {
   }
 };
 
-  const onSubmit = async (data) => {
-    try {
-     const formattedContent = (previewContent || "")
-  .replace(/\n\s*\n/g, "\n\n")
-  .trim();
+  const cleanContent = (content) =>
+    (content || "").replace(/\n\s*\n/g, "\n\n").trim();
 
-await saveResumeFn(formattedContent);
+  const onSubmit = async () => {
+    try {
+      await saveResumeFn(cleanContent(previewContent));
     } catch (error) {
       console.error("Save error:", error);
     }
+  };
+
+  const handleSave = () => {
+    if (activeTab === "preview") {
+      const formattedContent = cleanContent(previewContent);
+      if (!formattedContent) {
+        toast.error("Nothing to save. Add resume content first.");
+        return;
+      }
+      saveResumeFn(formattedContent);
+      return;
+    }
+    handleSubmit(onSubmit)();
   };
 
   return (
@@ -194,7 +206,7 @@ await saveResumeFn(formattedContent);
         <div className="space-x-2">
           <Button
             variant="destructive"
-            onClick={handleSubmit(onSubmit)}
+            onClick={handleSave}
             disabled={isSaving}
           >
             {isSaving ? (
