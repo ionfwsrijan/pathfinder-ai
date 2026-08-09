@@ -5,7 +5,7 @@ import {
   rankExploreCareers,
   scoreCareerAgainstProfile,
 } from "../lib/misc/explore-careers.js";
-import { readShortlistForOwner } from "../lib/misc/career-shortlist.js";
+import { readShortlistForOwner, shortlistBelongsToAnotherOwner } from "../lib/misc/career-shortlist.js";
 
 const mocks = vi.hoisted(() => ({
   auth: vi.fn(),
@@ -146,6 +146,27 @@ describe("career shortlist owner scoping", () => {
       isPersonalized: false,
     });
     expect(readShortlistForOwner(legacy, "user_1")).toEqual([]);
+  });
+});
+
+describe("shortlistBelongsToAnotherOwner", () => {
+  it("returns true for a scoped payload owned by a different owner", () => {
+    const raw = JSON.stringify({ ownerId: "user_1", items: [{ id: "x", title: "X" }] });
+    expect(shortlistBelongsToAnotherOwner(raw, "anonymous")).toBe(true);
+    expect(shortlistBelongsToAnotherOwner(raw, "user_2")).toBe(true);
+  });
+
+  it("returns false for the current owner's payload", () => {
+    const raw = JSON.stringify({ ownerId: "user_1", items: [{ id: "x", title: "X" }] });
+    expect(shortlistBelongsToAnotherOwner(raw, "user_1")).toBe(false);
+  });
+
+  it("returns false for garbage, empty, or unscoped data", () => {
+    expect(shortlistBelongsToAnotherOwner(null, "user_1")).toBe(false);
+    expect(shortlistBelongsToAnotherOwner("not-json", "user_1")).toBe(false);
+    expect(shortlistBelongsToAnotherOwner(JSON.stringify({ foo: "bar" }), "user_1")).toBe(false);
+    expect(shortlistBelongsToAnotherOwner(JSON.stringify([{ id: "x", title: "X" }]), "user_1")).toBe(false);
+    expect(shortlistBelongsToAnotherOwner(JSON.stringify({ ownerId: "user_1" }), "user_1")).toBe(false);
   });
 });
 

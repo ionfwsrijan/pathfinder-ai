@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import {
   getShortlistOwnerId,
   readShortlistForOwner,
+  shortlistBelongsToAnotherOwner,
   writeShortlistPayload,
 } from "@/lib/misc/career-shortlist";
 
@@ -27,7 +28,7 @@ export function useCareerShortlist() {
       const items = readShortlistForOwner(stored, ownerId);
       setShortlist(items);
 
-      if (stored && items.length === 0) {
+      if (stored && items.length === 0 && !shortlistBelongsToAnotherOwner(stored, ownerId)) {
         localStorage.removeItem(STORAGE_KEY);
       } else if (items.length > 0) {
         localStorage.setItem(STORAGE_KEY, writeShortlistPayload(ownerId, items));

@@ -2,6 +2,14 @@ import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import { useCareerShortlist } from "../hooks/use-career-shortlist.js";
 
+const mocks = vi.hoisted(() => ({
+  useAuth: vi.fn(),
+}));
+
+vi.mock("@clerk/nextjs", () => ({
+  useAuth: mocks.useAuth,
+}));
+
 const STORAGE_KEY = "career-shortlist";
 
 const sampleCareer = { id: "career-1", title: "Software Engineer" };
@@ -27,6 +35,8 @@ describe("useCareerShortlist", () => {
 
     storageMock = createStorageMock();
     Object.defineProperty(window, "localStorage", { value: storageMock, writable: true });
+
+    mocks.useAuth.mockReturnValue({ userId: null, isLoaded: true });
   });
 
   afterEach(() => {
@@ -46,7 +56,7 @@ describe("useCareerShortlist", () => {
   });
 
   it("loads valid shortlist from localStorage on mount", async () => {
-    storage[STORAGE_KEY] = JSON.stringify([sampleCareer]);
+    storage[STORAGE_KEY] = JSON.stringify({ ownerId: "anonymous", items: [sampleCareer] });
 
     const { result, unmount } = renderHook(() => useCareerShortlist());
     await waitForEffects();
@@ -129,7 +139,7 @@ describe("useCareerShortlist", () => {
     // Simulate a storage event from another tab
     const storageEvent = new StorageEvent("storage", {
       key: STORAGE_KEY,
-      newValue: JSON.stringify([sampleCareer, sampleCareer2]),
+      newValue: JSON.stringify({ ownerId: "anonymous", items: [sampleCareer, sampleCareer2] }),
     });
 
     act(() => {
@@ -137,6 +147,54 @@ describe("useCareerShortlist", () => {
     });
 
     expect(result.current.shortlist).toEqual([sampleCareer, sampleCareer2]);
+    unmount();
+  });
+
+  it("preserves the signed-in user's shortlist when signing out (#2838)", async () => {
+    storage[STORAGE_KEY] = JSON.stringify({ ownerId: "user_1", items: [sampleCareer] });
+    mocks.useAuth.mockReturnValue({ userId: "user_1", isLoaded: true });
+
+    const { result, rerender, unmount } = renderHook(() => useCareerShortlist());
+    await waitForEffects();
+    expect(result.current.shortlist).toEqual([sampleCareer]);
+
+    mocks.useAuth.mockReturnValue({ userId: null, isLoaded: true });
+    rerender();
+    await waitForEffects();
+
+    expect(result.current.shortlist).toEqual([]);
+    expect(storageMock.removeItem).not.toHaveBeenCalled();
+    expect(storage[STORAGE_KEY]).toBe(JSON.stringify({ ownerId: "user_1", items: [sampleCareer] }));
+    unmount();
+  });
+
+  it("preserves an anonymous shortlist when signing in (#2838)", async () => {
+    storage[STORAGE_KEY] = JSON.stringify({ ownerId: "anonymous", items: [sampleCareer] });
+    mocks.useAuth.mockReturnValue({ userId: null, isLoaded: true });
+
+    const { result, rerender, unmount } = renderHook(() => useCareerShortlist());
+    await waitForEffects();
+    expect(result.current.shortlist).toEqual([sampleCareer]);
+
+    mocks.useAuth.mockReturnValue({ userId: "user_1", isLoaded: true });
+    rerender();
+    await waitForEffects();
+
+    expect(result.current.shortlist).toEqual([]);
+    expect(storageMock.removeItem).not.toHaveBeenCalled();
+    expect(storage[STORAGE_KEY]).toBe(JSON.stringify({ ownerId: "anonymous", items: [sampleCareer] }));
+    unmount();
+  });
+
+  it("still removes empty scoped payloads owned by the current user", async () => {
+    storage[STORAGE_KEY] = JSON.stringify({ ownerId: "user_1", items: [] });
+    mocks.useAuth.mockReturnValue({ userId: "user_1", isLoaded: true });
+
+    const { result, unmount } = renderHook(() => useCareerShortlist());
+    await waitForEffects();
+
+    expect(result.current.shortlist).toEqual([]);
+    expect(storageMock.removeItem).toHaveBeenCalledWith(STORAGE_KEY);
     unmount();
   });
 });
