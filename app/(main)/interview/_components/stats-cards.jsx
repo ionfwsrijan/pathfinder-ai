@@ -1,3 +1,4 @@
+import React from "react";
 import { Brain, Target, Trophy, Crown, Zap } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -13,7 +14,7 @@ export default function StatsCards({ assessments }) {
 
   const getLatestAssessment = () => {
     if (!assessments?.length) return null;
-    return assessments[assessments.length - 1];
+    return assessments[0];
   };
 
   const getTotalQuestions = () => {
