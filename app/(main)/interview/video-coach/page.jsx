@@ -210,13 +210,19 @@ export default function VideoCoachPage() {
         eyeContactConsistency: eyeContactRatio > 0.8 ? "Good" : eyeContactRatio > 0.5 ? "Fair" : "Poor",
       };
 
-      const res = await evaluateVideoAnswer(question, transcript, actualMetrics);
-      if (res.success) {
-        setEvaluation(res.data);
-      } else {
-        toast.error(res.error);
+      try {
+        const res = await evaluateVideoAnswer(question, transcript, actualMetrics);
+        if (res.success) {
+          setEvaluation(res.data);
+        } else {
+          toast.error(res.error);
+        }
+      } catch (err) {
+        console.error("Video evaluation error:", err);
+        toast.error("Something went wrong while evaluating your answer. Please try again.");
+      } finally {
+        setEvaluating(false);
       }
-      setEvaluating(false);
     }, 1000); // Give transcript time to finalize
   };
 
